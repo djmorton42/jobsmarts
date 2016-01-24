@@ -34,7 +34,6 @@ import ca.quadrilateral.jobsmarts.api.exception.JobFetchException;
 import ca.quadrilateral.jobsmarts.api.exception.JobPageNotFoundException;
 import ca.quadrilateral.jobsmarts.data.api.IJobDataService;
 
-
 public class WaterlooTechJobsFetcher implements IJobFetcher {
     private static final Logger logger = LoggerFactory.getLogger(WaterlooTechJobsFetcher.class);
     
@@ -49,11 +48,11 @@ public class WaterlooTechJobsFetcher implements IJobFetcher {
     public Collection<Job> fetchJobs() {
         return fetchJobsFromPage(1);
     }
-    
+        
     private Collection<Job> fetchJobsFromPage(final int pageNumber) {
         final Collection<Job> newJobs = new ArrayList<>();
         
-        final String effectiveUrl = JOB_LIST_URL + (pageNumber == 1 ? "" : "page/" + pageNumber);
+        final String effectiveUrl = buildUrlString(pageNumber);
 
         try {
             final String jobListPageText = getHtmlPage(effectiveUrl);
@@ -77,7 +76,7 @@ public class WaterlooTechJobsFetcher implements IJobFetcher {
             
             final List<JobSummary> newJobSummaries = allJobSummaries
                     .stream()
-                    .filter(jobSummary -> jobDataService.isNew(jobSummary))
+                    .filter(jobDataService::isNew)
                     .collect(Collectors.toList());
             
             logger.info("{} jobs from page {} are new", newJobSummaries.size(), pageNumber);
@@ -100,6 +99,10 @@ public class WaterlooTechJobsFetcher implements IJobFetcher {
         }
         
         return newJobs;
+    }
+    
+    private String buildUrlString(final int pageNumber) {
+        return JOB_LIST_URL + (pageNumber == 1 ? "" : "page/" + pageNumber);
     }
     
     private String getHtmlPage(final String url) {
@@ -172,6 +175,7 @@ public class WaterlooTechJobsFetcher implements IJobFetcher {
             
             return jobDetails;
         } catch (final Exception e) {
+            logger.warn("Job Details could not be loaded for URL: {}", url);
             return null;
         }
     }
@@ -198,8 +202,8 @@ public class WaterlooTechJobsFetcher implements IJobFetcher {
     private String getContentCharset(final HttpResponse httpResponse) {
         return Arrays.asList(httpResponse.getHeaders("content-type"))
                 .stream()
-                .filter(x -> "charset".equalsIgnoreCase(x.getName()))
-                .map(x -> x.getValue())
+                .filter(contentTypeHeader -> "charset".equalsIgnoreCase(contentTypeHeader.getName()))
+                .map(contentTypeHeader -> contentTypeHeader.getValue())
                 .findFirst()
                 .orElse(null);
     }   

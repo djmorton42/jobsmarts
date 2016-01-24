@@ -7,6 +7,7 @@ import javax.ejb.Schedule;
 import javax.ejb.Singleton;
 import javax.ejb.Startup;
 import javax.ejb.Timeout;
+import javax.enterprise.event.Event;
 import javax.inject.Inject;
 
 import org.slf4j.Logger;
@@ -27,6 +28,9 @@ public class FetchTimer {
     @Inject
     private IJobFetcher jobFetcher;
 
+    @Inject
+    private Event<Job> jobEvent;
+    
     @PostConstruct
     private void init() {
         fetchJobs();
@@ -41,6 +45,7 @@ public class FetchTimer {
         logger.info("{} new jobs found", jobs.size());
         
         jobDataService.saveNewJobs(jobs);
+        jobs.forEach(jobEvent::fire);
         
         logger.info("Job fetch complete.");
     }

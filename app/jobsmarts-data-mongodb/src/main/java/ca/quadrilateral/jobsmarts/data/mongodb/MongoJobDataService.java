@@ -1,14 +1,15 @@
 package ca.quadrilateral.jobsmarts.data.mongodb;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Collection;
 import java.util.Date;
 import java.util.stream.Collectors;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
 
 import org.bson.Document;
 import org.slf4j.Logger;
@@ -20,10 +21,8 @@ import ca.quadrilateral.jobsmarts.api.JobSummary;
 import ca.quadrilateral.jobsmarts.data.api.IJobDataService;
 
 import com.mongodb.BasicDBObject;
-import com.mongodb.MongoClient;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
 
 @ApplicationScoped
 public class MongoJobDataService implements IJobDataService {
@@ -40,25 +39,14 @@ public class MongoJobDataService implements IJobDataService {
                 .append("jobUrl", 1)
                 .append("datePosted", 1);
     
-    private MongoClient mongoClient;
-    private MongoDatabase database;
+    @Inject
+    private MongoContext mongoContext;
     
     @PostConstruct
     private void init() {
-        logger.info("Establishing MongoDB connection");
-        this.mongoClient = new MongoClient();
-        this.database = this.mongoClient.getDatabase("jobsmarts");
-        
+        logger.info("Initializing Job Collections and Indexes");
         createJobSummaryIndexes();        
         createJobDetailsIndexes();
-    }
-    
-    @PreDestroy
-    private void cleanup() {
-        logger.info("Closing MongoDB connection");
-        if (this.mongoClient != null) {
-            this.mongoClient.close();
-        }
     }
 
     @Override
@@ -79,7 +67,7 @@ public class MongoJobDataService implements IJobDataService {
                     .append("datePosted", convertLocalDateToDate(jobSummary.getDatePosted()));
         
         final FindIterable<Document> existingJob = 
-                database
+                mongoContext.getDatabase()
                     .getCollection("jobsummaries")
                     .find(filter)
                     .limit(1);
@@ -90,7 +78,7 @@ public class MongoJobDataService implements IJobDataService {
     }
     
     private void insertJobSummaries(final Collection<Job> jobs) {
-        final MongoCollection<Document> collection = database.getCollection("jobsummaries");
+        final MongoCollection<Document> collection = mongoContext.getDatabase().getCollection("jobsummaries");
         collection.insertMany(
                 jobs
                     .stream()
@@ -100,7 +88,7 @@ public class MongoJobDataService implements IJobDataService {
     }
         
     private void insertJobDetails(final Collection<Job> jobs) {
-        final MongoCollection<Document> collection = database.getCollection("jobdetails");
+        final MongoCollection<Document> collection = mongoContext.getDatabase().getCollection("jobdetails");
         collection.insertMany(
                 jobs
                     .stream()
@@ -116,6 +104,7 @@ public class MongoJobDataService implements IJobDataService {
         
         document.put("description", jobDetails.getDescriptionHtml());
         document.put("uuid", job.getUUID().toString());
+        document.put("Date Received", convertLocalDateTimeToDate(job.getRetrievalDate()));
         document.put("Date Posted", convertLocalDateToDate(jobDetails.getDatePosted()));
         document.putAll(jobDetails.getFields());
         
@@ -143,15 +132,19 @@ public class MongoJobDataService implements IJobDataService {
         return new Date(date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli());
     }
     
+    private Date convertLocalDateTimeToDate(final LocalDateTime dateTime) {
+        return new Date(dateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
+    }
+    
     private void createJobSummaryIndexes() {
-        final MongoCollection<Document> collection = database.getCollection("jobsummaries");
+        final MongoCollection<Document> collection = mongoContext.getDatabase().getCollection("jobsummaries");
         
         collection.createIndex(JOB_SUMMARY_UUID_INDEX_DEF);
         collection.createIndex(JOB_SUMMARY_URL_DATE_INDEX_DEF);
     }
     
     private void createJobDetailsIndexes() {
-        final MongoCollection<Document> collection = database.getCollection("jobdetails");
+        final MongoCollection<Document> collection = mongoContext.getDatabase().getCollection("jobdetails");
         
         collection.createIndex(JOB_DETAILS_UUID_INDEX_DEF);
     }
