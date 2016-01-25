@@ -20,9 +20,9 @@ public class NewJobMailHandler {
     private static final Logger logger = LoggerFactory.getLogger(NewJobMailHandler.class);
 
     private static final String templateText = 
-            "subject(job) ::= \"New Job Posted: $job.jobSummary.jobTitle$\" " +
+            "subject(job) ::= \"New Job Posted: $job.jobSummary.jobTitle$ - $job.jobSummary.companyName$\" " +
             "message(job) ::= \"<html><head></head><body>" +
-            "<table border=\"1\">" +
+            "<table border='1'>" +
             "    <tr><td>Job Title</td><td>$job.jobSummary.jobTitle$</td></tr>" +
             "    <tr><td>Date Posted</td><td>$job.jobDetails.datePosted$</td></tr>" +
             "    $job.jobDetails.fields.keys:{k | <tr><td>$k$</td><td>$job.jobDetails.fields.(k)$</td></tr>}$" +
